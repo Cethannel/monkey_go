@@ -3,7 +3,6 @@ package ast
 import (
 	"bytes"
 	"monkey/token"
-	"runtime/trace"
 	"strings"
 )
 
@@ -251,21 +250,21 @@ type CallExpressions struct {
 	Arguments []Expression
 }
 
-func (ce *CallExpressions) expressionNode() {}
+func (ce *CallExpressions) expressionNode()      {}
 func (ce *CallExpressions) TokenLiteral() string { return ce.Token.Literal }
 func (ce *CallExpressions) String() string {
-    var out bytes.Buffer
+	var out bytes.Buffer
 
-    args := []string{}
+	args := []string{}
 
-    for _, a := range ce.Arguments {
-        args = append(args, a.String())
-    }
+	for _, a := range ce.Arguments {
+		args = append(args, a.String())
+	}
 
-    out.WriteString(ce.Function.String())
-    out.WriteString("(")
-    out.WriteString(strings.Join(args, ", "))
-    out.WriteString(")")
+	out.WriteString(ce.Function.String())
+	out.WriteString("(")
+	out.WriteString(strings.Join(args, ", "))
+	out.WriteString(")")
 
-    return out.String()
+	return out.String()
 }
