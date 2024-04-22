@@ -26,6 +26,9 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 	case *ast.Boolean:
 		return nativeBoolToBooleanObject(node.Value)
 
+	case *ast.StringLiteral:
+		return &object.String{Value: node.Value}
+
 	case *ast.PrefixExpression:
 		right := Eval(node.Right, env)
 		if isError(right) {
@@ -72,17 +75,17 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		body := node.Body
 		return &object.Function{Parameters: params, Env: env, Body: body}
 
-    case *ast.CallExpressions:
-        function := Eval(node.Function, env)
-        if isError(function) {
-            return function
-        }
-        args := evalExpression(node.Arguments, env)
-        if len(args) == 1 && isError(args[0]) {
-            return args[0]
-        }
+	case *ast.CallExpressions:
+		function := Eval(node.Function, env)
+		if isError(function) {
+			return function
+		}
+		args := evalExpression(node.Arguments, env)
+		if len(args) == 1 && isError(args[0]) {
+			return args[0]
+		}
 
-    return applyFunction(function, args)
+		return applyFunction(function, args)
 	}
 
 	return nil
@@ -167,6 +170,8 @@ func evalInfixExpression(operator string,
 	switch {
 	case left.Type() == object.INTEGER_OBJ && right.Type() == object.INTEGER_OBJ:
 		return evalIntegerInfixExpression(operator, left, right)
+	case left.Type() == object.STRING_OBJ && right.Type() == object.STRING_OBJ:
+		return evalStringInfixExpression(operator, left, right)
 	case operator == "==":
 		return nativeBoolToBooleanObject(left == right)
 	case operator == "!=":
@@ -250,59 +255,76 @@ func evalIdentifier(
 	node *ast.Identifier,
 	env *object.Environment,
 ) object.Object {
-	val, ok := env.Get(node.Value)
-	if !ok {
-		return newError("identifier not found: " + node.Value)
+	if builtin, ok := env.Get(node.Value); ok {
+		return builtin
 	}
 
-	return val
+	if builtin, ok := builtins[node.Value]; ok {
+		return builtin
+	}
+
+	return newError("identifier not found: " + node.Value)
 }
 
 func evalExpression(
-    exps []ast.Expression,
-    env *object.Environment,
+	exps []ast.Expression,
+	env *object.Environment,
 ) []object.Object {
-    var result []object.Object
+	var result []object.Object
 
-    for _, e := range exps {
-        evaluated := Eval(e, env)
-        if isError(evaluated) {
-            return []object.Object{evaluated}
-        }
-        result = append(result, evaluated)
-    }
+	for _, e := range exps {
+		evaluated := Eval(e, env)
+		if isError(evaluated) {
+			return []object.Object{evaluated}
+		}
+		result = append(result, evaluated)
+	}
 
-    return result
+	return result
 }
 
 func applyFunction(fn object.Object, args []object.Object) object.Object {
-    function, ok := fn.(*object.Function)
-    if !ok {
+	switch fn := fn.(type) {
+	case *object.Function:
+		extendedEnv := extendFunctionEnv(fn, args)
+		evaluated := Eval(fn.Body, extendedEnv)
+		return unwrapReturnValue(evaluated)
+	case *object.Buitin:
+		return fn.Fn(args...)
+	default:
         return newError("not a function: %s", fn.Type())
-    }
-
-    extendedEnv := extendFunctionEnv(function, args)
-    evaluated := Eval(function.Body, extendedEnv)
-    return unwrapReturnValue(evaluated)
+	}
 }
 
 func extendFunctionEnv(
-    fn *object.Function,
-    args []object.Object,
+	fn *object.Function,
+	args []object.Object,
 ) *object.Environment {
-    env := object.NewEnclosedEnv(fn.Env)
+	env := object.NewEnclosedEnv(fn.Env)
 
-    for paramIdx, param := range fn.Parameters {
-        env.Set(param.Value, args[paramIdx])
-    }
+	for paramIdx, param := range fn.Parameters {
+		env.Set(param.Value, args[paramIdx])
+	}
 
-    return env
+	return env
 }
 
 func unwrapReturnValue(obj object.Object) object.Object {
-    if returnValue, ok := obj.(*object.ReturnValue); ok {
-        return returnValue.Value
-    }
+	if returnValue, ok := obj.(*object.ReturnValue); ok {
+		return returnValue.Value
+	}
 
-    return obj
+	return obj
+}
+
+func evalStringInfixExpression(operator string,
+	left, right object.Object) object.Object {
+	if operator != "+" {
+		return newError("unknown operator: %s %s %s",
+			left.Type(), operator, right.Type())
+	}
+	leftVal := left.(*object.String).Value
+	rightVal := right.(*object.String).Value
+
+	return &object.String{Value: leftVal + rightVal}
 }
