@@ -97,12 +97,12 @@ func (s *String) Inspect() string  { return s.Value }
 
 type BuiltinFunction func(args ...Object) Object
 
-type Buitin struct {
+type Builtin struct {
 	Fn BuiltinFunction
 }
 
-func (b *Buitin) Type() ObjectType { return BUILTIN_OBJ }
-func (b *Buitin) Inspect() string  { return "builtin function" }
+func (b *Builtin) Type() ObjectType { return BUILTIN_OBJ }
+func (b *Builtin) Inspect() string  { return "builtin function" }
 
 type Array struct {
 	Elements []Object
