@@ -152,8 +152,13 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 
 		c.emit(code.OpHash, len(node.Pairs)*2)
+
 	case *ast.FunctionLiteral:
 		c.enterScope()
+
+		if node.Name != "" {
+			c.symbolTable.DefineFunctionName(node.Name)
+		}
 
 		for _, p := range node.Parameters {
 			c.symbolTable.Define(p.Value)
@@ -186,12 +191,14 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 		fnIndex := c.addConstant(compiledFn)
 		c.emit(code.OpClosure, fnIndex, len(freeSymbols))
+
 	case *ast.Boolean:
 		if node.Value {
 			c.emit(code.OpTrue)
 		} else {
 			c.emit(code.OpFalse)
 		}
+
 	case *ast.PrefixExpression:
 		err := c.Compile(node.Right)
 		if err != nil {
@@ -206,6 +213,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 		default:
 			return fmt.Errorf("unknown operator %s", node.Operator)
 		}
+
 	case *ast.IfExpression:
 		err := c.Compile(node.Condition)
 		if err != nil {
@@ -242,6 +250,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 
 		afterAlternativePos := len(c.currentInstructions())
 		c.changeOperands(jumpPos, afterAlternativePos)
+
 	case *ast.BlockStatement:
 		for _, s := range node.Statements {
 			err := c.Compile(s)
@@ -250,16 +259,18 @@ func (c *Compiler) Compile(node ast.Node) error {
 			}
 		}
 	case *ast.LetStatement:
+		symbol := c.symbolTable.Define(node.Name.Value)
 		err := c.Compile(node.Value)
 		if err != nil {
 			return err
 		}
-		symbol := c.symbolTable.Define(node.Name.Value)
+
 		if symbol.Scope == GlobalScope {
 			c.emit(code.OpSetGlobal, symbol.Index)
 		} else {
 			c.emit(code.OpSetLocal, symbol.Index)
 		}
+
 	case *ast.Identifier:
 		symbol, ok := c.symbolTable.Resolve(node.Value)
 		if !ok {
@@ -267,6 +278,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 
 		c.loadSymbol(symbol)
+
 	case *ast.IndexExpression:
 		err := c.Compile(node.Left)
 		if err != nil {
@@ -279,6 +291,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 
 		c.emit(code.OpIndex)
+
 	case *ast.ReturnStatement:
 		err := c.Compile(node.ReturnValue)
 		if err != nil {
@@ -286,6 +299,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 
 		c.emit(code.OpReturnValue)
+
 	case *ast.CallExpressions:
 		err := c.Compile(node.Function)
 		if err != nil {
@@ -430,5 +444,7 @@ func (c *Compiler) loadSymbol(s Symbol) {
 		c.emit(code.OpGetBuiltin, s.Index)
 	case FreeScope:
 		c.emit(code.OpGetFree, s.Index)
+	case FunctionScope:
+		c.emit(code.OpCurrentClosure)
 	}
 }

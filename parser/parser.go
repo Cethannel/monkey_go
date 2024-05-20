@@ -132,6 +132,10 @@ func (p *Parser) parseLetStatement() *ast.LetStatement {
 
 	stmt.Value = p.parseExpression(LOWEST)
 
+	if fl, ok := stmt.Value.(*ast.FunctionLiteral); ok {
+		fl.Name = stmt.Name.Value
+	}
+
 	if p.peekTokenIs(token.SEMICOLON) {
 		p.nextToken()
 	}
@@ -457,30 +461,30 @@ func (p *Parser) parseIndexExpression(left ast.Expression) ast.Expression {
 }
 
 func (p *Parser) parseHashLiteral() ast.Expression {
-    hash := &ast.HashLiteral{Token: p.curToken}
-    hash.Pairs = make(map[ast.Expression]ast.Expression)
+	hash := &ast.HashLiteral{Token: p.curToken}
+	hash.Pairs = make(map[ast.Expression]ast.Expression)
 
-    for !p.peekTokenIs(token.RBRACE) {
-        p.nextToken()
-        key := p.parseExpression(LOWEST)
+	for !p.peekTokenIs(token.RBRACE) {
+		p.nextToken()
+		key := p.parseExpression(LOWEST)
 
-        if !p.expectPeek(token.COLON) {
-            return nil
-        }
+		if !p.expectPeek(token.COLON) {
+			return nil
+		}
 
-        p.nextToken()
-        value := p.parseExpression(LOWEST)
+		p.nextToken()
+		value := p.parseExpression(LOWEST)
 
-        hash.Pairs[key] = value
+		hash.Pairs[key] = value
 
-        if !p.peekTokenIs(token.RBRACE) && !p.expectPeek(token.COMMA) {
-            return nil
-        }
-    }
+		if !p.peekTokenIs(token.RBRACE) && !p.expectPeek(token.COMMA) {
+			return nil
+		}
+	}
 
-    if !p.expectPeek(token.RBRACE) {
-        return nil
-    }
+	if !p.expectPeek(token.RBRACE) {
+		return nil
+	}
 
-    return hash
+	return hash
 }
